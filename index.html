@@ -2405,8 +2405,15 @@
       if (!state || e.pointerId !== state.id) return;
       const dx = e.clientX - state.startX;
       const dy = e.clientY - state.startY;
-      target.style.left = Math.max(0, state.startLeft + dx) + 'px';
-      target.style.top = Math.max(0, state.startTop + dy) + 'px';
+      let x = Math.max(0, state.startLeft + dx);
+      let y = Math.max(0, state.startTop + dy);
+      if (window.TeachingTableSnap?.snap) {
+        const snapped = window.TeachingTableSnap.snap(target, x, y);
+        x = snapped.x;
+        y = snapped.y;
+      }
+      target.style.left = x + 'px';
+      target.style.top = y + 'px';
       updateStageMinHeight();
     });
     function commit(e) {
@@ -2415,6 +2422,7 @@
       const y = parseFloat(target.style.top) || 0;
       target.dataset.x = String(x);
       target.dataset.y = String(y);
+      window.TeachingTableSnap?.clear?.();
       state = null;
       scheduleSave();
     }
