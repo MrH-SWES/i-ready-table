@@ -253,6 +253,8 @@
 
     state.current = index;
     setStatus('Loading ' + item.label + '…');
+    showLoadingSurface(item.label, index);
+    closeDrawer();
 
     try {
       const path = resolve(state.navPath, item.href.split('#')[0]);
@@ -262,10 +264,11 @@
       const html = await renderChapter(await f.async('text'), path);
       showSurface(item.label, html, index);
       setStatus(item.label);
-      closeDrawer();
     } catch (err) {
       console.error(err);
+      hideLoadingSurface();
       setStatus(err.message || 'Could not open section.', true);
+      openDrawer();
     }
   }
 
@@ -363,6 +366,45 @@
 </html>`;
   }
 
+  function ensureLoadingSurface() {
+    let loading = $('#curriculum-loading');
+    if (!loading) {
+      loading = document.createElement('div');
+      loading.id = 'curriculum-loading';
+      loading.textContent = 'Loading lesson…';
+      stage.insertBefore(loading, stage.firstChild);
+    }
+    return loading;
+  }
+
+  function showLoadingSurface(title, index) {
+    worksheetImg?.classList.add('hidden');
+    pad.classList.add('curriculum-active');
+    document.body.classList.add('has-curriculum');
+
+    const loading = ensureLoadingSurface();
+    loading.textContent = 'Loading ' + title + '…';
+    loading.classList.add('show');
+
+    const frame = $('#curriculum-surface');
+    if (frame) frame.style.display = 'none';
+
+    const label = surfaceLabel();
+    if (label) {
+      label.textContent = (state.bookTitle ? state.bookTitle + '  ›  ' : '') + title;
+      label.title = label.textContent;
+    }
+    if (surfacePrev()) surfacePrev().disabled = index <= 0;
+    if (surfaceNext()) surfaceNext().disabled = index >= state.toc.length - 1;
+    if (surfaceControls) surfaceControls.classList.add('active');
+    pad.scrollTop = 0;
+  }
+
+  function hideLoadingSurface() {
+    const loading = $('#curriculum-loading');
+    if (loading) loading.classList.remove('show');
+  }
+
   function fitSurface() {
     const frame = $('#curriculum-surface');
     if (!frame) return;
@@ -405,7 +447,9 @@
     pad.classList.add('curriculum-active');
     document.body.classList.add('has-curriculum');
 
+    frame.style.display = 'block';
     frame.onload = () => {
+      hideLoadingSurface();
       sizeSurface(frame);
       requestAnimationFrame(() => sizeSurface(frame));
       setTimeout(() => sizeSurface(frame), 150);
