@@ -1,6 +1,35 @@
 (() => {
   'use strict';
 
+  if (!window.TeachingTableMode) {
+    window.TeachingTableMode = {
+      get() {
+        return document.body.dataset.annotationMode || '';
+      },
+      set(mode = '') {
+        const next = ['math', 'write', 'read'].includes(mode) ? mode : '';
+        document.body.dataset.annotationMode = next;
+        document.body.classList.toggle('math-place-mode', next === 'math');
+        document.body.classList.toggle('write-mode', next === 'write');
+        document.body.classList.toggle('read-mode', next === 'read');
+
+        const mathBtn = document.getElementById('mathPanelBtn');
+        const writeBtn = document.getElementById('writeBtn');
+        const readBtn = document.getElementById('readBtn');
+        mathBtn?.classList.toggle('is-on', next === 'math');
+        writeBtn?.classList.toggle('is-on', next === 'write');
+        readBtn?.classList.toggle('is-on', next === 'read');
+
+        if (next === 'math') document.body.classList.add('math-panel-open');
+        if (next !== 'math' && document.activeElement?.tagName !== 'MATH-FIELD') {
+          document.body.classList.remove('math-panel-open');
+        }
+
+        document.dispatchEvent(new CustomEvent('teachingtablemodechange', { detail: { mode: next } }));
+      }
+    };
+  }
+
   function enhance() {
     const dock = document.getElementById('tools-dock');
     const side = document.querySelector('.side');
@@ -96,7 +125,8 @@
     if (!mathBtn.__wired) {
       mathBtn.addEventListener('click', e => {
         e.stopPropagation();
-        setMath(!document.body.classList.contains('math-panel-open'));
+        const mode = window.TeachingTableMode?.get?.() || '';
+        window.TeachingTableMode?.set?.(mode === 'math' ? '' : 'math');
       });
       mathBtn.__wired = true;
     }
@@ -125,7 +155,8 @@
           !e.target.closest?.('math-field') &&
           !e.target.closest?.('.digit-cell') &&
           !e.target.closest?.('.algo-block') &&
-          !e.target.closest?.('.text-note')
+          !e.target.closest?.('.text-note') &&
+          (window.TeachingTableMode?.get?.() || '') !== 'math'
         ) {
           setMath(false);
         }
@@ -141,6 +172,7 @@
         if (e.key === 'Escape') {
           setTools(false);
           setMath(false);
+          window.TeachingTableMode?.set?.('');
         }
       });
 
