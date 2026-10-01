@@ -1,0 +1,362 @@
+/* Teaching Table v2: curriculum is the surface; tools are temporary chrome. */
+
+:root {
+  --topbar-h: 46px;
+  --floating-panel: rgba(255,255,255,.94);
+}
+
+body {
+  background: #ecebe7;
+}
+
+.shell {
+  display: block !important;
+  height: 100%;
+  padding: 8px !important;
+}
+
+.pad-wrap {
+  height: 100%;
+  padding: 0 !important;
+  gap: 0 !important;
+  border-radius: 20px !important;
+  background: rgba(255,255,255,.76) !important;
+  overflow: visible !important;
+}
+
+#tools-dock {
+  flex: 0 0 var(--topbar-h) !important;
+  height: var(--topbar-h);
+  display: flex !important;
+  align-items: center;
+  gap: 6px !important;
+  padding: 6px 8px !important;
+  border: 0 !important;
+  border-bottom: 1px solid rgba(0,0,0,.08) !important;
+  border-radius: 20px 20px 0 0 !important;
+  background: rgba(250,250,248,.90) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: none !important;
+  z-index: 120 !important;
+}
+
+#tools-dock > .domain-btn-wrap {
+  display: none !important;
+}
+
+#tools-dock button,
+#tool-palette button {
+  box-shadow: none !important;
+}
+
+#curriculumBtn,
+#toolsBtn,
+#mathPanelBtn,
+#tidyBtn {
+  min-width: 0 !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 11px !important;
+  border-radius: 9px !important;
+  font-size: 12px !important;
+  font-weight: 750 !important;
+  color: #4c4c52 !important;
+  background: rgba(255,255,255,.76) !important;
+  border: 1px solid rgba(0,0,0,.09) !important;
+}
+
+#curriculumBtn {
+  margin-left: 0 !important;
+  color: #173c70 !important;
+}
+
+#toolsBtn.is-on,
+#mathPanelBtn.is-on,
+#curriculumBtn.is-on {
+  color: #173c70 !important;
+  background: #edf3ff !important;
+  border-color: rgba(46,88,148,.24) !important;
+}
+
+#tidyBtn {
+  margin-left: 0 !important;
+}
+
+#surface-controls {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  opacity: .55;
+}
+
+#surface-controls.active {
+  opacity: 1;
+}
+
+#surface-controls button {
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  font-size: 16px !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+#surface-controls button:hover:not(:disabled) {
+  background: rgba(0,0,0,.055) !important;
+}
+
+#surface-controls button:disabled {
+  opacity: .22;
+}
+
+#surface-fit {
+  width: auto !important;
+  min-width: 36px !important;
+  padding: 0 7px !important;
+  font-size: 11px !important;
+}
+
+#surface-label {
+  min-width: 90px;
+  max-width: min(560px, 46vw);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 750;
+  color: #4f4f55;
+}
+
+#pad-frame {
+  flex: 1 1 auto;
+  border: 0 !important;
+  border-radius: 0 0 20px 20px !important;
+  box-shadow: none !important;
+  background: #e8e7e2;
+}
+
+#pad {
+  border-radius: 0 0 20px 20px !important;
+}
+
+#pad.curriculum-active {
+  padding: 0 !important;
+  background: #e8e7e2 !important;
+  background-image: none !important;
+}
+
+#pad.curriculum-active #stage {
+  width: min(1120px, 100%);
+  min-height: 100%;
+  margin: 0 auto;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.05), 0 14px 40px rgba(0,0,0,.08);
+}
+
+.curriculum-surface {
+  display: block;
+  width: 100%;
+  min-height: 600px;
+  border: 0;
+  background: #fff;
+  pointer-events: none;
+  user-select: none;
+}
+
+#worksheet-img {
+  position: relative;
+  z-index: 0;
+}
+
+#stage > .row,
+#stage > .algo-holder {
+  z-index: 20;
+}
+
+/* Floating tools remain over the surface. Their chrome stays quiet until needed. */
+.tool-window {
+  border-radius: 14px !important;
+  border-color: rgba(0,0,0,.10) !important;
+  box-shadow: 0 16px 44px rgba(0,0,0,.16), 0 3px 10px rgba(0,0,0,.07) !important;
+}
+
+.tool-titlebar {
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 5px 0 7px !important;
+  background: rgba(247,247,247,.94) !important;
+}
+
+.tool-title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  opacity: .56;
+  transition: opacity 120ms ease;
+}
+
+.tool-window:hover .tool-title,
+.tool-window.dragging .tool-title,
+.tool-window.pinching .tool-title {
+  opacity: 1;
+}
+
+.tool-grip,
+.tool-close {
+  opacity: .38 !important;
+}
+
+.tool-window:hover .tool-grip,
+.tool-window:hover .tool-close,
+.tool-window.dragging .tool-grip,
+.tool-window.dragging .tool-close {
+  opacity: 1 !important;
+}
+
+/* One Tools button replaces the permanent family strip. */
+#tool-palette {
+  position: fixed;
+  top: 58px;
+  left: 16px;
+  z-index: 1700;
+  width: min(760px, calc(100vw - 32px));
+  padding: 10px;
+  display: none;
+  align-items: flex-start;
+  gap: 6px;
+  flex-wrap: wrap;
+  background: var(--floating-panel);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(0,0,0,.10);
+  border-radius: 15px;
+  box-shadow: 0 20px 54px rgba(0,0,0,.18), 0 4px 14px rgba(0,0,0,.08);
+  overflow: visible;
+}
+
+#tool-palette.show {
+  display: flex;
+}
+
+#tool-palette .domain-btn-wrap {
+  display: block !important;
+}
+
+#tool-palette .domain-btn {
+  height: 32px !important;
+  min-height: 32px !important;
+  font-size: 12px !important;
+  padding: 0 10px !important;
+}
+
+#tool-palette .domain-panel {
+  z-index: 1720 !important;
+}
+
+/* Math keypad is now a contextual floating palette, not permanent real estate. */
+.side {
+  position: fixed !important;
+  top: 58px;
+  right: 14px;
+  bottom: auto;
+  z-index: 1650;
+  width: 218px !important;
+  max-height: calc(100vh - 74px);
+  overflow: auto !important;
+  padding: 9px !important;
+  gap: 6px !important;
+  border-radius: 16px !important;
+  background: var(--floating-panel) !important;
+  border: 1px solid rgba(0,0,0,.10) !important;
+  box-shadow: 0 20px 54px rgba(0,0,0,.18), 0 4px 14px rgba(0,0,0,.08) !important;
+  transform: translateX(calc(100% + 30px));
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 160ms ease, opacity 140ms ease;
+}
+
+body.math-panel-open .side {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.side .brand {
+  display: none !important;
+}
+
+.side button {
+  min-height: 34px !important;
+  height: 34px !important;
+  font-size: 15px !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.side .alg-btn {
+  height: 38px !important;
+  min-height: 38px !important;
+}
+
+.side .utility .util {
+  height: 30px !important;
+  min-height: 30px !important;
+  font-size: 11px !important;
+}
+
+#curriculum-drawer {
+  top: 58px !important;
+  left: 14px !important;
+  bottom: 14px !important;
+  width: min(390px, calc(100vw - 28px)) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 22px 64px rgba(0,0,0,.20), 0 5px 16px rgba(0,0,0,.08) !important;
+}
+
+.curriculum-head {
+  padding: 11px 12px 9px !important;
+}
+
+.curriculum-controls {
+  padding: 10px !important;
+}
+
+#curriculum-toc {
+  padding: 6px !important;
+}
+
+.curriculum-toc-row {
+  min-height: 32px !important;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+/* Old lesson-window styles stay inert; lessons now live on the surface. */
+.curriculum-window {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  .shell { padding: 4px !important; }
+  #tools-dock { padding: 5px !important; }
+  #curriculumBtn,
+  #toolsBtn,
+  #mathPanelBtn,
+  #tidyBtn {
+    padding: 0 8px !important;
+    font-size: 11px !important;
+  }
+  #surface-label { max-width: 28vw; font-size: 11px; }
+  #tidyBtn { display: none !important; }
+  .side { right: 8px; top: 54px; width: 196px !important; }
+  #tool-palette { left: 8px; right: 8px; top: 54px; width: auto; }
+  #curriculum-drawer { top: 54px !important; left: 8px !important; bottom: 8px !important; }
+}
