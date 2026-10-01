@@ -154,3 +154,122 @@ body.read-mode #curriculum-surface {
 body.math-place-mode #pad-frame {
   cursor: crosshair;
 }
+
+
+/* Compact in-place annotations: the answer should feel written on the page,
+   not placed inside a floating app window. */
+.row.positioned {
+  min-width: 0 !important;
+  width: fit-content !important;
+  max-width: 78% !important;
+  min-height: 0 !important;
+  padding: 0 3px 0 15px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.row.positioned:hover {
+  background: rgba(255,255,255,.42) !important;
+}
+.row.positioned.active {
+  background: rgba(255,255,255,.72) !important;
+  box-shadow: 0 0 0 1px rgba(46,88,148,.16) !important;
+}
+.row.positioned math-field {
+  width: 54px;
+  min-width: 42px !important;
+  min-height: 38px !important;
+  padding: 0 2px !important;
+  font-size: min(var(--math-size), 34px) !important;
+  line-height: 1 !important;
+  background: transparent !important;
+}
+.row.positioned .row-grip {
+  width: 14px !important;
+}
+.row.positioned .row-grip::before {
+  left: 4px !important;
+  height: 15px !important;
+  opacity: .6;
+}
+.row.positioned .note-delete {
+  right: -8px !important;
+  top: -9px !important;
+  width: 19px !important;
+  height: 19px !important;
+  min-height: 19px !important;
+  font-size: 12px !important;
+  color: #77777d !important;
+  border-color: rgba(0,0,0,.10) !important;
+  box-shadow: 0 2px 7px rgba(0,0,0,.08) !important;
+}
+
+/* Written responses start as a small inline answer and grow with the words. */
+.text-note {
+  width: 132px;
+  min-width: 96px;
+  max-width: min(440px, 86%);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+.text-note:hover {
+  background: rgba(255,255,255,.42);
+  box-shadow: none;
+}
+.text-note.active,
+.text-note.listening {
+  background: rgba(255,255,255,.82);
+  box-shadow: 0 0 0 1px rgba(46,88,148,.16);
+}
+
+.text-note-bar {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 3px);
+  height: 25px;
+  min-width: 112px;
+  width: max-content;
+  padding: 1px 3px 1px 5px;
+  border-radius: 8px;
+  background: rgba(250,250,248,.96);
+  border: 1px solid rgba(0,0,0,.08);
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+.text-note:hover .text-note-bar,
+.text-note.active .text-note-bar,
+.text-note.listening .text-note-bar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.text-note-grip {
+  min-width: 28px;
+  flex: 0 0 28px;
+  justify-content: center;
+  letter-spacing: 1px;
+}
+
+.text-note-editor {
+  min-height: 34px;
+  padding: 2px 5px 3px;
+  font-size: 20px;
+  line-height: 1.34;
+  border-radius: 6px;
+}
+.text-note-editor:empty::before {
+  content: "Type…";
+}
+
+/* Keep tool palettes out of the way when writing. */
+body.write-mode .side {
+  transform: translateX(calc(100% + 30px)) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
