@@ -1502,7 +1502,7 @@
         <button id="bigTextBtn" class="util" aria-label="larger text">A+</button>
         <button id="worksheetSmallBtn" class="util" aria-label="zoom background out">▣−</button>
         <button id="worksheetBigBtn" class="util" aria-label="zoom background in">▣+</button>
-        <button class="util danger" id="clearBtn" aria-label="clear pad"><span class="trash-icon"></span></button>
+        <button class="util danger" id="clearBtn" aria-label="clear annotations" title="Clear annotations"><span class="trash-icon"></span></button>
       </nav>
 
     </aside>
@@ -1749,6 +1749,8 @@
     mf.setAttribute('smart-mode', 'true');
     mf.setAttribute('letter-shape-style', 'tex');
     mf.setAttribute('default-mode', 'math');
+    mf.setAttribute('inputmode', 'decimal');
+    mf.tabIndex = 0;
     mf.value = latex;
 
     mf.addEventListener('focusin', () => setActive(mf));
@@ -3559,20 +3561,56 @@
     });
     document.getElementById('clearBtn').addEventListener('pointerdown', event => {
       event.preventDefault();
-      // Clear annotations and worksheet, return to plain paper.
-      [...stage.children].forEach(el => { if (el !== worksheetImg) el.remove(); });
-      worksheetDataUrl = null;
-      worksheetScale = 1;
-      backgroundScale = 1;
-      applyWorksheetScale();
-      applyBackgroundScale();
-      worksheetImg.src = '';
-      worksheetImg.classList.add('hidden');
-      setMode('plain');
-      makeRow('');
-      setActive(document.querySelector('math-field'));
+
+      // Clear student/teacher work only. The selected curriculum page,
+      // worksheet/PDF, paper mode, zoom, and open Math Things stay exactly as-is.
+      stage.querySelectorAll('.row, .algo-holder, .text-note').forEach(el => el.remove());
+      stage.querySelectorAll('.snap-guide').forEach(el => el.remove());
+
+      activeField = null;
+      activeCell = null;
+      clearActiveCell();
+      updateStageMinHeight();
+
+      // Plain-language notes use their own small local-storage record.
+      localStorage.removeItem('i-ready-table-text-notes-v1');
+
+      // Persist the now-empty annotation layer without touching background state.
       saveNow();
+
+      document.dispatchEvent(new CustomEvent('teachingtableannotationscleared'));
     });
+
+  // Physical keyboard → active 123 Math box.
+  // If MathLive itself has focus, let it handle the keystroke natively.
+  window.addEventListener('keydown', (e) => {
+    if (activeCell) return;
+    if (!activeField || !activeField.isConnected) return;
+    if (document.activeElement?.tagName === 'MATH-FIELD') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target?.closest?.('.text-note-editor, input, textarea, [contenteditable="true"]')) return;
+
+    const row = activeField.closest('.row');
+    if (!row?.classList.contains('active')) return;
+
+    if (/^[0-9.]$/.test(e.key)) {
+      e.preventDefault();
+      insertText(e.key);
+      activeField.focus({ preventScroll: true });
+    } else if (e.key === 'Backspace') {
+      e.preventDefault();
+      command('backspace');
+      activeField.focus({ preventScroll: true });
+    } else if (e.key === '+' || e.key === '-' || e.key === '=') {
+      e.preventDefault();
+      insertText(e.key);
+      activeField.focus({ preventScroll: true });
+    } else if (e.key === '*' || e.key.toLowerCase() === 'x') {
+      e.preventDefault();
+      insertLatex('\\times');
+      activeField.focus({ preventScroll: true });
+    }
+  });
 
   // Physical keyboard → algorithm cell input
   window.addEventListener('keydown', (e) => {
@@ -3612,6 +3650,6 @@
   <script src="./curriculum.js?v=20260930c"></script>
   <script src="./table-v2.js?v=20260930e"></script>
   <script src="./tts-client.js?v=20261001a"></script>
-  <script src="./accessibility.js?v=20261001tts"></script>
+  <script src="./accessibility.js?v=20261001b"></script>
 </body>
 </html>
