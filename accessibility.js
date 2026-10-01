@@ -261,12 +261,25 @@
     handle.addEventListener('pointercancel', end);
   }
 
-  function createTextNote(text = '', x = 40, y = 40, width = 320) {
+  function fitTextNote(note) {
+    const editor = note.querySelector('.text-note-editor');
+    if (!editor) return;
+    const text = (editor.innerText || '').replace(/\n/g, ' ');
+    const probe = document.createElement('span');
+    probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font:500 20px/1.34 Lexend,system-ui,sans-serif;';
+    probe.textContent = text || 'Type…';
+    document.body.appendChild(probe);
+    const natural = Math.ceil(probe.getBoundingClientRect().width + 18);
+    probe.remove();
+    note.style.width = Math.max(96, Math.min(440, natural)) + 'px';
+  }
+
+  function createTextNote(text = '', x = 40, y = 40, width = 132) {
     const note = document.createElement('div');
     note.className = 'text-note positioned';
     note.style.left = Math.max(0, x) + 'px';
     note.style.top = Math.max(0, y) + 'px';
-    note.style.width = Math.max(180, width || 320) + 'px';
+    note.style.width = Math.max(96, Math.min(440, width || 132)) + 'px';
 
     const bar = document.createElement('div');
     bar.className = 'text-note-bar';
@@ -311,7 +324,10 @@
       note.classList.add('active');
     });
 
-    editor.addEventListener('input', scheduleSave);
+    editor.addEventListener('input', () => {
+      fitTextNote(note);
+      scheduleSave();
+    });
     editor.addEventListener('blur', scheduleSave);
 
     mic.addEventListener('click', e => {
@@ -339,6 +355,7 @@
       mic.title = 'Speech recognition is not available in this browser.';
     }
 
+    requestAnimationFrame(() => fitTextNote(note));
     scheduleSave();
     return note;
   }
@@ -356,7 +373,7 @@
       n.text || '',
       Number(n.x) || 0,
       Number(n.y) || 0,
-      Number(n.width) || 320
+      Number(n.width) || 132
     ));
   }
 
@@ -369,9 +386,9 @@
     e.stopImmediatePropagation();
 
     const rect = stage.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const note = createTextNote('', x, y);
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    const note = createTextNote('', Math.max(0, clickX - 4), Math.max(0, clickY - 25));
     const editor = note.querySelector('.text-note-editor');
     editor.focus({ preventScroll: true });
   }, true);
