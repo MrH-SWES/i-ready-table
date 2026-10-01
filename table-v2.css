@@ -339,10 +339,9 @@ body.math-panel-open .side {
   padding-bottom: 6px !important;
 }
 
-/* Old lesson-window styles stay inert; lessons now live on the surface. */
-.curriculum-window {
-  display: none !important;
-}
+/* Compatibility: old cached curriculum.js may still create a floating lesson window.
+   Do not hide it; the current build uses #curriculum-surface instead. */
+.curriculum-window { }
 
 @media (max-width: 760px) {
   .shell { padding: 4px !important; }
@@ -360,3 +359,17 @@ body.math-panel-open .side {
   #tool-palette { left: 8px; right: 8px; top: 54px; width: auto; }
   #curriculum-drawer { top: 54px !important; left: 8px !important; bottom: 8px !important; }
 }
+
+#curriculum-loading {
+  width: min(1120px, 100%);
+  min-height: 100%;
+  margin: 0 auto;
+  display: none;
+  place-items: center;
+  background: #fff;
+  color: #68686d;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.05), 0 14px 40px rgba(0,0,0,.08);
+}
+#curriculum-loading.show { display: grid; }
