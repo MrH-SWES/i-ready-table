@@ -8,8 +8,6 @@
   if (!stage || !pad || !dock) return;
 
   const STORAGE_KEY = 'i-ready-table-text-notes-v1';
-  let writeMode = false;
-  let readMode = false;
   let activeRecognition = null;
   let activeMicButton = null;
   let saveTimer = null;
@@ -30,24 +28,25 @@
   const writeBtn = makeButton('writeBtn', 'Aa Write', 'add a written response');
   const readBtn = makeButton('readBtn', '🔊 Read', 'read curriculum text aloud');
 
+  const mode = () => window.TeachingTableMode?.get?.() || '';
+
   function setWriteMode(on) {
-    writeMode = !!on;
-    document.body.classList.toggle('write-mode', writeMode);
-    writeBtn.classList.toggle('is-on', writeMode);
-    if (writeMode) setReadMode(false);
+    window.TeachingTableMode?.set?.(on ? 'write' : '');
   }
 
   function setReadMode(on) {
-    readMode = !!on;
-    document.body.classList.toggle('read-mode', readMode);
-    readBtn.classList.toggle('is-on', readMode);
-    if (readMode) setWriteMode(false);
+    window.TeachingTableMode?.set?.(on ? 'read' : '');
     configureCurriculumFrame();
-    if (!readMode && 'speechSynthesis' in window) speechSynthesis.cancel();
+    if (!on && 'speechSynthesis' in window) speechSynthesis.cancel();
   }
 
-  writeBtn.addEventListener('click', () => setWriteMode(!writeMode));
-  readBtn.addEventListener('click', () => setReadMode(!readMode));
+  writeBtn.addEventListener('click', () => setWriteMode(mode() !== 'write'));
+  readBtn.addEventListener('click', () => setReadMode(mode() !== 'read'));
+
+  document.addEventListener('teachingtablemodechange', () => {
+    configureCurriculumFrame();
+    if (mode() !== 'read' && 'speechSynthesis' in window) speechSynthesis.cancel();
+  });
 
   function ensureGuides() {
     let v = stage.querySelector('.snap-guide.vertical');
@@ -362,7 +361,7 @@
   }
 
   stage.addEventListener('click', e => {
-    if (!writeMode) return;
+    if (mode() !== 'write') return;
     if (e.target.closest?.('.text-note, .row, .algo-holder, .tool-window')) return;
 
     // Capture the click before the original worksheet handler can create a math box.
@@ -397,13 +396,13 @@
     if (!frame) return;
 
     const apply = () => {
-      frame.style.pointerEvents = readMode ? 'auto' : 'none';
+      frame.style.pointerEvents = mode() === 'read' ? 'auto' : 'none';
       let doc;
       try { doc = frame.contentDocument; } catch { return; }
       if (!doc || doc.__readModeWired) return;
 
       doc.addEventListener('click', e => {
-        if (!readMode) return;
+        if (mode() !== 'read') return;
         e.preventDefault();
         e.stopPropagation();
         const block = meaningfulTextTarget(e.target);
@@ -435,8 +434,7 @@
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      setWriteMode(false);
-      setReadMode(false);
+      window.TeachingTableMode?.set?.('');
     }
   });
 
