@@ -37,7 +37,7 @@
   function setReadMode(on) {
     window.TeachingTableMode?.set?.(on ? 'read' : '');
     configureCurriculumFrame();
-    if (!on && 'speechSynthesis' in window) speechSynthesis.cancel();
+    if (!on) window.TeachingTableSpeech?.stop();
   }
 
   writeBtn.addEventListener('click', () => setWriteMode(mode() !== 'write'));
@@ -45,7 +45,7 @@
 
   document.addEventListener('teachingtablemodechange', () => {
     configureCurriculumFrame();
-    if (mode() !== 'read' && 'speechSynthesis' in window) speechSynthesis.cancel();
+    window.TeachingTableSpeech?.stop();
   });
 
   function ensureGuides() {
@@ -151,15 +151,18 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
   }
 
-  function speak(text) {
-    const value = String(text || '').replace(/\s+/g, ' ').trim();
-    if (!value || !('speechSynthesis' in window)) return;
-    speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(value);
-    utterance.rate = 0.94;
-    utterance.pitch = 1;
-    utterance.lang = 'en-US';
-    speechSynthesis.speak(utterance);
+  function speak(text, button) {
+    window.TeachingTableSpeech?.speak(text, state => {
+      button.dataset.ttsState = state;
+      button.setAttribute('aria-busy', String(state === 'loading'));
+      button.title = {
+        loading: 'Preparing voice… Click again to stop.',
+        premium: 'Reading aloud. Click again to stop.',
+        fallback: 'Reading with device voice. Click again to stop.',
+        unavailable: 'Audio is unavailable in this browser.',
+        idle: '',
+      }[state] || '';
+    });
   }
 
   function startDictation(editor, micBtn) {
@@ -337,7 +340,7 @@
 
     hear.addEventListener('click', e => {
       e.stopPropagation();
-      speak(editor.innerText);
+      speak(editor.innerText, hear);
     });
 
     del.addEventListener('click', e => {
@@ -345,6 +348,7 @@
       if (activeMicButton === mic && activeRecognition) {
         try { activeRecognition.stop(); } catch {}
       }
+      window.TeachingTableSpeech?.stop();
       note.remove();
       scheduleSave();
     });
@@ -423,7 +427,7 @@
         e.preventDefault();
         e.stopPropagation();
         const block = meaningfulTextTarget(e.target);
-        if (block) speak(block.textContent);
+        if (block) speak(block.textContent, readBtn);
       }, true);
 
       doc.__readModeWired = true;
@@ -431,7 +435,7 @@
 
     apply();
     if (!frame.__readLoadWired) {
-      frame.addEventListener('load', apply);
+      frame.addEventListener('load', () => { window.TeachingTableSpeech?.stop(); apply(); });
       frame.__readLoadWired = true;
     }
   }
