@@ -20,9 +20,13 @@
         writeBtn?.classList.toggle('is-on', next === 'write');
         readBtn?.classList.toggle('is-on', next === 'read');
 
-        if (next === 'math') document.body.classList.add('math-panel-open');
-        if (next !== 'math' && document.activeElement?.tagName !== 'MATH-FIELD') {
+        if (next === 'math') {
+          document.body.classList.add('math-panel-open');
+        } else {
           document.body.classList.remove('math-panel-open');
+          if (document.activeElement?.tagName === 'MATH-FIELD') {
+            try { document.activeElement.blur(); } catch {}
+          }
         }
 
         document.dispatchEvent(new CustomEvent('teachingtablemodechange', { detail: { mode: next } }));
