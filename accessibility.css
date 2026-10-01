@@ -150,3 +150,7 @@ body.read-mode #curriculum-surface {
   .text-note { width: 280px; }
   .text-note-editor { font-size: 18px; }
 }
+
+body.math-place-mode #pad-frame {
+  cursor: crosshair;
+}
