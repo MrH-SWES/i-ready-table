@@ -1752,7 +1752,11 @@
 
     mf.addEventListener('focusin', () => setActive(mf));
     mf.addEventListener('pointerdown', () => setActive(mf));
-    mf.addEventListener('input', scheduleSave);
+    mf.addEventListener('input', () => {
+      const row = mf.closest('.row');
+      if (row?.classList.contains('positioned')) fitPositionedMathRow(row);
+      scheduleSave();
+    });
     mf.addEventListener('keydown', (event) => {
       if (event.key === '/') {
         // Let MathLive handle physical-keyboard slash.
@@ -2349,12 +2353,26 @@
 
   // ===== Teaching Table: positioning, dragging, worksheet =====
 
+  function fitPositionedMathRow(row) {
+    const mf = row?.querySelector('math-field');
+    if (!mf) return;
+    const latex = String(mf.value || '');
+    const visible = latex
+      .replace(/\\(?:frac|dfrac|tfrac)/g, 'xx')
+      .replace(/\\[a-zA-Z]+/g, 'x')
+      .replace(/[{}]/g, '');
+    const chars = Math.max(1, visible.length);
+    const width = Math.max(42, Math.min(260, 22 + chars * 17));
+    mf.style.width = width + 'px';
+  }
+
   function positionRow(row, x, y) {
     row.classList.add('positioned');
     row.style.left = Math.max(0, x) + 'px';
     row.style.top = Math.max(0, y) + 'px';
     row.dataset.x = String(Math.max(0, x));
     row.dataset.y = String(Math.max(0, y));
+    fitPositionedMathRow(row);
     updateStageMinHeight();
   }
 
@@ -2534,10 +2552,11 @@
     e.stopImmediatePropagation();
 
     const rect = stage.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
     const mf = makeRow('');
-    positionRow(mf.closest('.row'), x, y);
+    const row = mf.closest('.row');
+    positionRow(row, Math.max(0, clickX - 6), Math.max(0, clickY - 31));
     setActive(mf);
     mf.focus({ preventScroll: true });
     scheduleSave();
