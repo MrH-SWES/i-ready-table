@@ -1,0 +1,152 @@
+
+/* Plain-language answer boxes, speech controls, and magnetic alignment. */
+
+#documentBtn,
+#writeBtn,
+#readBtn {
+  min-width: 0 !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  border-radius: 9px !important;
+  font-size: 12px !important;
+  font-weight: 750 !important;
+  color: #4c4c52 !important;
+  background: rgba(255,255,255,.76) !important;
+  border: 1px solid rgba(0,0,0,.09) !important;
+  box-shadow: none !important;
+}
+
+#writeBtn.is-on,
+#readBtn.is-on {
+  color: #173c70 !important;
+  background: #edf3ff !important;
+  border-color: rgba(46,88,148,.24) !important;
+}
+
+.text-note {
+  position: absolute;
+  z-index: 24;
+  width: 320px;
+  min-width: 180px;
+  max-width: min(520px, 86%);
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  background: rgba(255,255,255,.90);
+  box-shadow: 0 3px 12px rgba(0,0,0,.06);
+  transition: border-color 100ms ease, box-shadow 100ms ease, background 100ms ease;
+}
+
+.text-note:hover,
+.text-note.active {
+  border-color: rgba(46,88,148,.30);
+  box-shadow: 0 7px 20px rgba(0,0,0,.10);
+  background: rgba(255,255,255,.97);
+}
+
+.text-note-bar {
+  height: 25px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 0 6px;
+  opacity: .18;
+  transition: opacity 100ms ease;
+  user-select: none;
+}
+
+.text-note:hover .text-note-bar,
+.text-note.active .text-note-bar,
+.text-note.listening .text-note-bar {
+  opacity: 1;
+}
+
+.text-note-grip {
+  flex: 1 1 auto;
+  height: 21px;
+  cursor: grab;
+  color: #888890;
+  font-size: 15px;
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+}
+.text-note-grip:active { cursor: grabbing; }
+
+.text-note-bar button {
+  width: 25px !important;
+  min-width: 25px !important;
+  height: 23px !important;
+  min-height: 23px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  padding: 0 !important;
+  font-size: 13px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #68686d !important;
+}
+
+.text-note-bar button:hover {
+  background: rgba(0,0,0,.06) !important;
+}
+
+.text-note .text-note-mic.listening {
+  color: #9d3a36 !important;
+  background: rgba(157,58,54,.10) !important;
+}
+
+.text-note-editor {
+  min-height: 48px;
+  padding: 5px 11px 10px;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 500 20px/1.42 Lexend, system-ui, sans-serif;
+  color: #1d1d1f;
+  cursor: text;
+}
+
+.text-note-editor:empty::before {
+  content: "Type or use the microphone…";
+  color: #a0a0a6;
+  pointer-events: none;
+}
+
+.snap-guide {
+  position: absolute;
+  z-index: 23;
+  pointer-events: none;
+  background: rgba(46,88,148,.42);
+  display: none;
+}
+.snap-guide.vertical {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.snap-guide.horizontal {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+.snap-guide.show { display: block; }
+
+body.write-mode #pad-frame {
+  cursor: text;
+}
+
+body.read-mode #curriculum-surface {
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  #documentBtn,
+  #writeBtn,
+  #readBtn {
+    padding: 0 7px !important;
+    font-size: 11px !important;
+  }
+  .text-note { width: 280px; }
+  .text-note-editor { font-size: 18px; }
+}
