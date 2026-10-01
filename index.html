@@ -2514,11 +2514,25 @@
     return true;
   }
 
-  // Stage click → create positioned row in worksheet mode.
+  // Unified surface placement: math boxes can be placed on curriculum, worksheets,
+  // or blank paper whenever 123 Math placement mode is active.
   stage.addEventListener('click', (e) => {
     if (Date.now() < suppressStageClickUntil) return;
-    if (currentMode !== 'worksheet') return;
-    if (e.target !== stage && e.target !== worksheetImg) return;
+    if ((window.TeachingTableMode?.get?.() || '') !== 'math') return;
+    if (e.target.closest?.('.row, .algo-holder, .text-note')) return;
+
+    const curriculumSurface = document.getElementById('curriculum-surface');
+    const isSurfaceClick =
+      e.target === stage ||
+      e.target === worksheetImg ||
+      e.target === curriculumSurface ||
+      e.target?.id === 'curriculum-loading';
+
+    if (!isSurfaceClick) return;
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
     const rect = stage.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -2527,7 +2541,7 @@
     setActive(mf);
     mf.focus({ preventScroll: true });
     scheduleSave();
-  });
+  }, true);
 
   // File input change.
   worksheetFileInput.addEventListener('change', (e) => {
