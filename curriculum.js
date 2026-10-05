@@ -18,6 +18,9 @@
   const input = $('#curriculumFile');
   const tocEl = $('#curriculum-toc');
   const search = $('#curriculum-search');
+  const pageInput = $('#curriculum-page-input');
+  const pageTotal = $('#curriculum-page-total');
+  const pageGo = $('#curriculum-page-go');
   const status = $('#curriculum-status');
   const stage = $('#stage');
   const pad = $('#pad');
@@ -122,10 +125,29 @@
     btn.classList.remove('is-on');
   }
 
+  function jumpToPage() {
+    if (!state.toc.length || !pageInput) return;
+    const value = Number.parseInt(pageInput.value, 10);
+    if (!Number.isFinite(value) || value < 1 || value > state.toc.length) {
+      setStatus('Enter a page from 1 to ' + state.toc.length + '.', true);
+      pageInput.focus();
+      pageInput.select?.();
+      return;
+    }
+    openSection(value - 1);
+  }
+
   btn.addEventListener('click', openDrawer);
   close.addEventListener('click', closeDrawer);
   pick.addEventListener('click', () => input.click());
   search.addEventListener('input', renderToc);
+  pageGo?.addEventListener('click', jumpToPage);
+  pageInput?.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      jumpToPage();
+    }
+  });
 
   input.addEventListener('change', async () => {
     const file = input.files?.[0];
@@ -207,9 +229,17 @@
         file.name.replace(/\.epub$/i, '');
 
       $('#curriculum-book-title').textContent = state.bookTitle;
-      $('#curriculum-book-meta').textContent = state.toc.length + ' sections';
+      $('#curriculum-book-meta').textContent = state.toc.length + ' pages';
       search.disabled = false;
       search.value = '';
+      if (pageInput) {
+        pageInput.disabled = false;
+        pageInput.max = String(state.toc.length);
+        pageInput.value = '';
+        pageInput.placeholder = '1–' + state.toc.length;
+      }
+      if (pageTotal) pageTotal.textContent = 'of ' + state.toc.length;
+      if (pageGo) pageGo.disabled = false;
       renderToc();
       setStatus('Ready. Pick a lesson or session.');
     } catch (err) {
@@ -252,6 +282,7 @@
     if (!item) return;
 
     state.current = index;
+    if (pageInput) pageInput.value = String(index + 1);
     setStatus('Loading ' + item.label + '…');
     showLoadingSurface(item.label, index);
     closeDrawer();
