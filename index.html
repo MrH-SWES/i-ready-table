@@ -781,7 +781,8 @@
     /* ===== v5 additions ===== */
     .note-delete,
     .algo-delete,
-    .algo-expand {
+    .algo-expand,
+    .algo-addend {
       position: absolute;
       z-index: 45;
       width: 24px;
@@ -811,12 +812,30 @@
       border-color: rgba(46,88,148,0.24) !important;
       font-size: 18px;
     }
+    .algo-addend {
+      left: 24px;
+      bottom: -12px;
+      width: auto;
+      min-width: 76px;
+      padding: 0 9px;
+      border-radius: 999px;
+      color: #2d6b42 !important;
+      border-color: rgba(45,107,66,0.24) !important;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .algo-addend:disabled {
+      opacity: .42 !important;
+      cursor: default;
+    }
     .row:hover .note-delete,
     .row.active .note-delete,
     .algo-holder:hover .algo-delete,
     .algo-holder.active .algo-delete,
     .algo-holder:hover .algo-expand,
-    .algo-holder.active .algo-expand {
+    .algo-holder.active .algo-expand,
+    .algo-holder:hover .algo-addend,
+    .algo-holder.active .algo-addend {
       opacity: 1;
       transform: scale(1);
     }
@@ -2024,6 +2043,8 @@
 
   const DEFAULT_ALGO_COLUMNS = 5;
   const MAX_ALGO_COLUMNS = 14;
+  const DEFAULT_ADDEND_COUNT = 2;
+  const MAX_ADDEND_COUNT = 5;
 
   function makeCells(n) {
     return Array.from({ length: n }, () => '<span class="digit-cell" tabindex="0"></span>').join('');
@@ -2074,20 +2095,66 @@
     return true;
   }
 
-  function makeAlgoBlock(type, columns = DEFAULT_ALGO_COLUMNS) {
+  function additionOperandCount(block) {
+    return block ? block.querySelectorAll('.algo-row.operand').length : 0;
+  }
+
+  function refreshAdditionOperator(block) {
+    if (!block || block.dataset.alg !== 'add') return;
+    const operands = [...block.querySelectorAll('.algo-row.operand')];
+    operands.forEach((row, index) => {
+      const op = row.querySelector('.opcell');
+      if (op) op.textContent = index === operands.length - 1 ? '+' : '';
+    });
+    const button = block.closest('.algo-holder')?.querySelector('.algo-addend');
+    if (button) {
+      const count = operands.length;
+      button.disabled = count >= MAX_ADDEND_COUNT;
+      button.textContent = count >= MAX_ADDEND_COUNT ? '5 addends' : '+ addend';
+      button.setAttribute('aria-label', count >= MAX_ADDEND_COUNT ? 'maximum of five addends reached' : 'add another addend');
+    }
+  }
+
+  function addAdditionOperand(block) {
+    if (!block || block.dataset.alg !== 'add') return false;
+    const current = additionOperandCount(block);
+    if (current >= MAX_ADDEND_COUNT) return false;
+    const answer = block.querySelector('.algo-row.answer');
+    if (!answer) return false;
+
+    const row = document.createElement('div');
+    row.className = 'algo-row operand';
+    row.innerHTML = '<span class="opcell"></span>' + makeCells(algorithmColumnCount(block));
+    row.querySelectorAll('.digit-cell').forEach(wireDigitCell);
+    block.insertBefore(row, answer);
+    refreshAdditionOperator(block);
+    assignRightToLeftOrders(block, { type: 'add' });
+    setActiveCell(row.querySelector('.digit-cell:last-child'));
+    updateStageMinHeight();
+    return true;
+  }
+
+  function makeAlgoBlock(type, columns = DEFAULT_ALGO_COLUMNS, addendCount = DEFAULT_ADDEND_COUNT) {
     const columnCount = Math.max(DEFAULT_ALGO_COLUMNS, Math.min(MAX_ALGO_COLUMNS, Number(columns) || DEFAULT_ALGO_COLUMNS));
     const block = document.createElement('div');
     block.className = 'algo-block ' + type + (type === 'div' ? ' longdiv-block' : '');
     block.dataset.alg = type;
     block.dataset.columns = String(columnCount);
     block.style.setProperty('--algo-cols', String(columnCount));
-    if (type === 'add' || type === 'sub') {
-      const op = type === 'add' ? '+' : '−';
-      const carryClass = type === 'sub' ? 'algo-row carry borrow' : 'algo-row carry';
+    if (type === 'add') {
+      const count = Math.max(DEFAULT_ADDEND_COUNT, Math.min(MAX_ADDEND_COUNT, Number(addendCount) || DEFAULT_ADDEND_COUNT));
+      const operandRows = Array.from({ length: count }, (_, index) =>
+        '<div class="algo-row operand"><span class="opcell">' + (index === count - 1 ? '+' : '') + '</span>' + makeCells(columnCount) + '</div>'
+      ).join('');
       block.innerHTML = `
-        <div class="${carryClass}"><span class="opcell"></span>${makeCells(columnCount)}</div>
+        <div class="algo-row carry"><span class="opcell"></span>${makeCells(columnCount)}</div>
+        ${operandRows}
+        <div class="algo-row answer"><span class="opcell"></span>${makeCells(columnCount)}</div>`;
+    } else if (type === 'sub') {
+      block.innerHTML = `
+        <div class="algo-row carry borrow"><span class="opcell"></span>${makeCells(columnCount)}</div>
         <div class="algo-row operand"><span class="opcell"></span>${makeCells(columnCount)}</div>
-        <div class="algo-row operand"><span class="opcell">${op}</span>${makeCells(columnCount)}</div>
+        <div class="algo-row operand"><span class="opcell">−</span>${makeCells(columnCount)}</div>
         <div class="algo-row answer"><span class="opcell"></span>${makeCells(columnCount)}</div>`;
     } else if (type === 'mul') {
       block.innerHTML = `
@@ -2143,7 +2210,24 @@
       if (expandAlgoBlock(block)) scheduleSave();
     });
     holder.appendChild(expand);
+
+    if (type === 'add') {
+      const addend = document.createElement('button');
+      addend.type = 'button';
+      addend.className = 'algo-addend';
+      addend.textContent = '+ addend';
+      addend.setAttribute('aria-label', 'add another addend');
+      addend.addEventListener('pointerdown', event => { event.preventDefault(); event.stopPropagation(); });
+      addend.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (addAdditionOperand(block)) scheduleSave();
+      });
+      holder.appendChild(addend);
+    }
+
     holder.appendChild(block);
+    if (type === 'add') refreshAdditionOperator(block);
     enableDrag(holder, grip);
 
     // Decide placement: positioned alongside current positioned context, or flow at insertion point.
@@ -2195,6 +2279,7 @@
             kind: 'alg',
             type: b?.dataset.alg || 'add',
             columns: algorithmColumnCount(b),
+            addends: b?.dataset.alg === 'add' ? additionOperandCount(b) : undefined,
             values: [...b.querySelectorAll('.digit-cell')].map(c => c.textContent || ''),
             positioned, x, y,
           };
@@ -2327,7 +2412,7 @@
           if (item.positioned) positionRow(mf.closest('.row'), item.x || 0, item.y || 0);
         }
         if (item.kind === 'alg') {
-          makeAlgoBlock(item.type || 'add', item.columns || DEFAULT_ALGO_COLUMNS);
+          makeAlgoBlock(item.type || 'add', item.columns || DEFAULT_ALGO_COLUMNS, item.addends || DEFAULT_ADDEND_COUNT);
           const holder = stage.lastElementChild;
           const block = holder?.querySelector('.algo-block');
           const cells = block ? [...block.querySelectorAll('.digit-cell')] : [];
