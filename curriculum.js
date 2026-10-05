@@ -465,6 +465,29 @@
     frame.style.display = 'block';
     frame.onload = () => {
       hideLoadingSurface();
+      try {
+        const doc = frame.contentDocument;
+        if (doc?.body) {
+          doc.querySelector('#i-ready-page-number')?.remove();
+          const pageNumber = doc.createElement('div');
+          pageNumber.id = 'i-ready-page-number';
+          pageNumber.textContent = 'Page ' + (index + 1) + ' of ' + state.toc.length;
+          pageNumber.setAttribute('aria-label', pageNumber.textContent);
+          Object.assign(pageNumber.style, {
+            margin: '28px 20px 14px auto',
+            width: 'max-content',
+            padding: '5px 10px',
+            borderRadius: '999px',
+            background: 'rgba(255,255,255,.92)',
+            border: '1px solid rgba(0,0,0,.12)',
+            color: '#555',
+            font: '700 12px/1.2 system-ui,sans-serif'
+          });
+          doc.body.appendChild(pageNumber);
+        }
+      } catch (err) {
+        console.warn('Could not add curriculum page number', err);
+      }
       sizeSurface(frame);
       requestAnimationFrame(() => sizeSurface(frame));
       setTimeout(() => sizeSurface(frame), 150);
