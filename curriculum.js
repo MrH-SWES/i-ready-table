@@ -389,6 +389,10 @@
     const frame = $('#curriculum-surface');
     if (frame) frame.style.display = 'none';
 
+    const badge = ensurePageBadge();
+    badge.textContent = 'Page ' + (index + 1) + ' of ' + state.toc.length;
+    badge.style.display = 'block';
+
     const label = surfaceLabel();
     if (label) {
       label.textContent = (state.bookTitle ? state.bookTitle + '  ›  ' : '') + title;
@@ -431,6 +435,17 @@
     }
   }
 
+  function ensurePageBadge() {
+    let badge = $('#curriculum-page-number');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'curriculum-page-number';
+      badge.setAttribute('aria-live', 'polite');
+      stage.insertBefore(badge, stage.firstChild);
+    }
+    return badge;
+  }
+
   function showSurface(title, srcdoc, index) {
     let frame = $('#curriculum-surface');
 
@@ -465,6 +480,10 @@
 
     if (surfacePrev()) surfacePrev().disabled = index <= 0;
     if (surfaceNext()) surfaceNext().disabled = index >= state.toc.length - 1;
+
+    const badge = ensurePageBadge();
+    badge.textContent = 'Page ' + (index + 1) + ' of ' + state.toc.length;
+    badge.style.display = 'block';
 
     if (surfaceControls) surfaceControls.classList.add('active');
 
