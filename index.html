@@ -1451,6 +1451,12 @@
       <div class="curriculum-controls">
         <button type="button" id="curriculum-pick">Open an EPUB from this device</button>
         <input id="curriculum-search" type="search" placeholder="Find a lesson or session…" disabled />
+        <div class="curriculum-page-jump" aria-label="jump to curriculum page">
+          <label for="curriculum-page-input">Page</label>
+          <input id="curriculum-page-input" type="number" min="1" step="1" inputmode="numeric" placeholder="—" disabled />
+          <span id="curriculum-page-total">of —</span>
+          <button type="button" id="curriculum-page-go" disabled>Go</button>
+        </div>
         <div id="curriculum-status">Your EPUB stays on this device.</div>
       </div>
       <div id="curriculum-toc"></div>
