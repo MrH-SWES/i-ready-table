@@ -210,7 +210,7 @@
     .keys.edit-pad { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .utility {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 6px;
       margin-top: 2px;
     }
@@ -431,6 +431,19 @@
       background: rgba(54, 95, 157, .16);
       box-shadow: inset 0 -0.08em 0 #365f9d;
     }
+    .algo-block.add .digit-cell.ones-slot { position: relative; }
+    .algo-block.add .algo-row.has-decimal .digit-cell.ones-slot::after {
+      content: ".";
+      position: absolute;
+      right: -.23em;
+      bottom: -.02em;
+      z-index: 3;
+      font-weight: 900;
+      font-size: 1.05em;
+      line-height: 1;
+      color: currentColor;
+      pointer-events: none;
+    }
     .longdiv-block { min-width: 10em; }
     .longdiv-quotient {
       display: grid;
@@ -498,13 +511,13 @@
       box-shadow: none;
       z-index: 10;
       max-width: 90%;
-      min-width: 130px;
+      min-width: 48px;
       width: max-content;
       transition: background-color 130ms ease, border-color 130ms ease, box-shadow 130ms ease;
     }
     .row.positioned math-field {
       width: auto;
-      min-width: 110px;
+      min-width: 34px;
     }
     .row.positioned:hover {
       background: rgba(255, 253, 247, 0.62);
@@ -1442,7 +1455,7 @@
     </main>
 
     <input type="file" id="worksheetFile" accept="image/*,application/pdf,.pdf" style="display:none" />
-    <input type="file" id="curriculumFile" accept=".epub,application/epub+zip" style="display:none" />
+    <input type="file" id="curriculumFile" accept=".epub,application/epub+zip" multiple style="display:none" />
 
     <section id="curriculum-drawer" aria-hidden="true" aria-label="Curriculum browser">
       <div class="curriculum-head">
@@ -1454,7 +1467,12 @@
         <button type="button" id="curriculum-close" aria-label="close curriculum">×</button>
       </div>
       <div class="curriculum-controls">
-        <button type="button" id="curriculum-pick">Open an EPUB from this device</button>
+        <div class="curriculum-library-row">
+          <select id="curriculum-library" aria-label="saved curriculum books">
+            <option value="">Saved books…</option>
+          </select>
+          <button type="button" id="curriculum-pick">Add EPUB(s)</button>
+        </div>
         <input id="curriculum-search" type="search" placeholder="Find a lesson or session…" disabled />
         <div class="curriculum-page-jump" aria-label="jump to curriculum page">
           <label for="curriculum-page-input">Page</label>
@@ -1462,7 +1480,7 @@
           <span id="curriculum-page-total">of —</span>
           <button type="button" id="curriculum-page-go" disabled>Go</button>
         </div>
-        <div id="curriculum-status">Your EPUB stays on this device.</div>
+        <div id="curriculum-status">Add a book once; Teaching Table will remember it on this device.</div>
       </div>
       <div id="curriculum-toc"></div>
     </section>
@@ -1528,10 +1546,11 @@
 
       <!-- Zone 6: Utilities (small, bottom) -->
       <nav class="utility" aria-label="utilities">
-        <button id="smallTextBtn" class="util" aria-label="smaller text">A−</button>
-        <button id="bigTextBtn" class="util" aria-label="larger text">A+</button>
-        <button id="worksheetSmallBtn" class="util" aria-label="zoom background out">▣−</button>
-        <button id="worksheetBigBtn" class="util" aria-label="zoom background in">▣+</button>
+        <button id="smallTextBtn" class="util" aria-label="smaller math">A−</button>
+        <button id="bigTextBtn" class="util" aria-label="larger math">A+</button>
+        <button id="worksheetSmallBtn" class="util" aria-label="zoom canvas out">Z−</button>
+        <button id="surfaceFitBtn" class="util" aria-label="fit canvas to window">Fit</button>
+        <button id="worksheetBigBtn" class="util" aria-label="zoom canvas in">Z+</button>
         <button class="util danger" id="clearBtn" aria-label="clear annotations" title="Clear annotations"><span class="trash-icon"></span></button>
       </nav>
 
@@ -1732,9 +1751,11 @@
   let worksheetDataUrl = null;
   let worksheetScale = Number(localStorage.getItem('math-things-worksheet-scale') || '1');
   let backgroundScale = Number(localStorage.getItem('math-things-background-scale') || '1');
+  let surfaceScale = Number(localStorage.getItem('math-things-surface-scale') || '1');
   let suppressStageClickUntil = 0;
   let pollTimer = null;
   let activeSessionId = null;
+  let modalOpenedAt = 0;
 
   function afterMathliveReady(callback) {
     if (window.MathfieldElement) callback();
@@ -1761,12 +1782,10 @@
       event.preventDefault();
       event.stopPropagation();
       row.remove();
-      if (!document.querySelector('.row')) {
-        const mf = makeRow('');
-        setActive(mf);
-      } else if (activeField && activeField.closest('.row') === row) {
+      if (activeField && activeField.closest('.row') === row) {
+        activeField = null;
         const mf = document.querySelector('math-field');
-        setActive(mf);
+        if (mf) setActive(mf);
       }
       scheduleSave();
     });
@@ -1825,7 +1844,13 @@
   }
 
   function focusActive() {
-    if (!activeField) activeField = document.querySelector('math-field') || makeRow();
+    if (!activeField || !activeField.isConnected) activeField = document.querySelector('math-field');
+    if (!activeField) {
+      activeField = makeRow();
+      const row = activeField.closest('.row');
+      const zoom = surfaceScale || 1;
+      positionRow(row, ((pad.scrollLeft || 0) / zoom) + 24, ((pad.scrollTop || 0) / zoom) + 24);
+    }
     setActive(activeField);
     activeField.focus({ preventScroll: true });
     return activeField;
@@ -1974,11 +1999,63 @@
     return cellsForRow(row).map(c => c.textContent || '').join('').replace(/^\s+/, '');
   }
 
+  const ADD_FRACTION_COLUMNS = 3;
+
+  function markAdditionPlaces(block) {
+    if (!block || block.dataset.alg !== 'add') return;
+    block.querySelectorAll('.algo-row').forEach(row => {
+      const cells = cellsForRow(row);
+      cells.forEach(cell => cell.classList.remove('ones-slot'));
+      const onesIndex = cells.length - ADD_FRACTION_COLUMNS - 1;
+      if (onesIndex >= 0 && cells[onesIndex]) cells[onesIndex].classList.add('ones-slot');
+    });
+  }
+
   function writeRowDigits(row, value) {
     let cells = cellsForRow(row);
+    const block = row.closest('.algo-block');
+
+    if (block?.dataset.alg === 'add' && (row.classList.contains('operand') || row.classList.contains('answer'))) {
+      let raw = String(value ?? '').replace(/[^0-9.]/g, '');
+      const dot = raw.indexOf('.');
+      if (dot >= 0) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, '');
+      const hasDecimal = raw.includes('.');
+      let [whole = '', frac = ''] = raw.split('.');
+      if (hasDecimal && whole === '') whole = '0';
+      frac = frac.slice(0, ADD_FRACTION_COLUMNS);
+
+      const wholeNeeded = Math.max(1, whole.length);
+      let wholeCapacity = cells.length - ADD_FRACTION_COLUMNS;
+      if (wholeNeeded > wholeCapacity) {
+        expandAlgoBlock(block, wholeNeeded - wholeCapacity);
+        cells = cellsForRow(row);
+        wholeCapacity = cells.length - ADD_FRACTION_COLUMNS;
+      }
+
+      markAdditionPlaces(block);
+      const onesIndex = cells.length - ADD_FRACTION_COLUMNS - 1;
+      cells.forEach(cell => { cell.textContent = ''; });
+
+      for (let i = whole.length - 1, ci = onesIndex; i >= 0 && ci >= 0; i--, ci--) {
+        cells[ci].textContent = whole[i];
+      }
+      for (let i = 0; i < frac.length && onesIndex + 1 + i < cells.length; i++) {
+        cells[onesIndex + 1 + i].textContent = frac[i];
+      }
+
+      const clean = whole + (hasDecimal ? '.' + frac : '');
+      row.dataset.entryValue = clean;
+      row.classList.toggle('has-decimal', hasDecimal);
+
+      const target = hasDecimal
+        ? Math.min(cells.length - 1, onesIndex + 1 + frac.length)
+        : onesIndex;
+      setActiveCell(cells[Math.max(0, target)]);
+      return;
+    }
+
     const digits = String(value || '').replace(/[^0-9]/g, '');
     if (digits.length > cells.length) {
-      const block = row.closest('.algo-block');
       if (block) expandAlgoBlock(block, digits.length - cells.length);
       cells = cellsForRow(row);
     }
@@ -1989,8 +2066,6 @@
     for (let i = clean.length - 1; i >= 0 && cellIndex >= 0; i--, cellIndex--) {
       cells[cellIndex].textContent = clean[i];
     }
-    // Keep the active target at the ones place. New digits append to the right of the number,
-    // while the displayed digits shift left like place-value boxes.
     setActiveCell(cells[cells.length - 1]);
   }
 
@@ -2002,16 +2077,19 @@
   }
 
   function isAutoNumberRow(row) {
-    // Only the actual operands behave like typed numbers that build from the ones place.
-    // Carries, borrows, partial products, work rows, and final answers are column-specific.
-    return !!row && row.classList.contains('operand');
+    if (!row) return false;
+    if (row.classList.contains('operand')) return true;
+    const block = row.closest('.algo-block');
+    return block?.dataset.alg === 'add' && row.classList.contains('answer');
   }
 
   function insertIntoCell(text) {
     if (!activeCell) return false;
     const row = activeAlgorithmRow();
-    if (isAutoNumberRow(row) && /^[0-9]$/.test(text)) {
-      writeRowDigits(row, readRowDigits(row) + text);
+    if (isAutoNumberRow(row) && /^[0-9.]$/.test(text)) {
+      const current = readRowDigits(row);
+      if (text === '.' && current.includes('.')) return true;
+      writeRowDigits(row, current + text);
       scheduleSave();
       return true;
     }
@@ -2101,6 +2179,7 @@
 
     block.dataset.columns = String(target);
     block.style.setProperty('--algo-cols', String(target));
+    if (block.dataset.alg === 'add') markAdditionPlaces(block);
     assignRightToLeftOrders(block, { type: block.dataset.alg });
     updateStageMinHeight();
     return true;
@@ -2139,6 +2218,7 @@
     row.querySelectorAll('.digit-cell').forEach(wireDigitCell);
     block.insertBefore(row, answer);
     refreshAdditionOperator(block);
+    markAdditionPlaces(block);
     assignRightToLeftOrders(block, { type: 'add' });
     setActiveCell(row.querySelector('.digit-cell:last-child'));
     updateStageMinHeight();
@@ -2146,7 +2226,8 @@
   }
 
   function makeAlgoBlock(type, columns = DEFAULT_ALGO_COLUMNS, addendCount = DEFAULT_ADDEND_COUNT) {
-    const columnCount = Math.max(DEFAULT_ALGO_COLUMNS, Math.min(MAX_ALGO_COLUMNS, Number(columns) || DEFAULT_ALGO_COLUMNS));
+    const requestedColumns = Math.max(DEFAULT_ALGO_COLUMNS, Math.min(MAX_ALGO_COLUMNS, Number(columns) || DEFAULT_ALGO_COLUMNS));
+    const columnCount = type === 'add' ? Math.max(8, requestedColumns) : requestedColumns;
     const block = document.createElement('div');
     block.className = 'algo-block ' + type + (type === 'div' ? ' longdiv-block' : '');
     block.dataset.alg = type;
@@ -2184,6 +2265,7 @@
         <div class="work-row"><span></span>${makeCells(columnCount)}</div>
         <div class="work-row"><span></span>${makeCells(columnCount)}</div>`;
     }
+    if (type === 'add') markAdditionPlaces(block);
     assignRightToLeftOrders(block, { type });
     block.querySelectorAll('.digit-cell').forEach(wireDigitCell);
     const holder = document.createElement('div');
@@ -2291,6 +2373,7 @@
             type: b?.dataset.alg || 'add',
             columns: algorithmColumnCount(b),
             addends: b?.dataset.alg === 'add' ? additionOperandCount(b) : undefined,
+            entries: [...b.querySelectorAll('.algo-row')].map(row => row.dataset.entryValue ?? null),
             values: [...b.querySelectorAll('.digit-cell')].map(c => c.textContent || ''),
             positioned, x, y,
           };
@@ -2305,6 +2388,7 @@
       worksheet: worksheetDataUrl,
       worksheetScale,
       backgroundScale,
+      surfaceScale,
       tools: toolStates,
     }));
   }
@@ -2338,6 +2422,33 @@
     pad.style.setProperty('--paper-line-size', (48 * backgroundScale) + 'px');
     pad.style.setProperty('--paper-grid-size', (24 * backgroundScale) + 'px');
     localStorage.setItem('math-things-background-scale', String(backgroundScale));
+  }
+
+  function applySurfaceScale() {
+    surfaceScale = Math.max(0.55, Math.min(2.5, surfaceScale));
+    stage.style.zoom = String(surfaceScale);
+    localStorage.setItem('math-things-surface-scale', String(surfaceScale));
+    updateStageMinHeight();
+  }
+
+  function changeSurfaceScale(delta) {
+    surfaceScale = Math.max(0.55, Math.min(2.5, surfaceScale + delta));
+    applySurfaceScale();
+    scheduleSave();
+  }
+
+  function fitSurfaceScale() {
+    surfaceScale = 1;
+    applySurfaceScale();
+    pad.scrollLeft = 0;
+    scheduleSave();
+  }
+
+  function setSurfaceScaleFromRatio(startScale, ratio) {
+    if (!Number.isFinite(ratio) || ratio <= 0) return;
+    surfaceScale = Math.max(0.55, Math.min(2.5, startScale * ratio));
+    applySurfaceScale();
+    scheduleSave();
   }
 
   function scalePositionedAnnotations(ratio) {
@@ -2393,9 +2504,11 @@
       if (typeof data.mathSize === 'number') mathSize = data.mathSize;
       if (typeof data.worksheetScale === 'number') worksheetScale = data.worksheetScale;
       if (typeof data.backgroundScale === 'number') backgroundScale = data.backgroundScale;
+      if (typeof data.surfaceScale === 'number') surfaceScale = data.surfaceScale;
       applyMathSize();
       applyWorksheetScale();
       applyBackgroundScale();
+      applySurfaceScale();
 
       // Clear stage but preserve the worksheet img element.
       [...stage.children].forEach(el => { if (el !== worksheetImg) el.remove(); });
@@ -2414,9 +2527,9 @@
       if (modeToSet === 'worksheet' && !worksheetDataUrl) modeToSet = 'plain';
       setMode(modeToSet);
 
-      const items = Array.isArray(data.items) && data.items.length
+      const items = Array.isArray(data.items)
         ? data.items
-        : (Array.isArray(data.rows) ? data.rows.map(latex => ({ kind: 'row', latex })) : [{ kind: 'row', latex: '' }]);
+        : (Array.isArray(data.rows) ? data.rows.map(latex => ({ kind: 'row', latex })) : []);
       items.forEach(item => {
         if (item.kind === 'row') {
           const mf = makeRow(item.latex || '');
@@ -2428,12 +2541,20 @@
           const block = holder?.querySelector('.algo-block');
           const cells = block ? [...block.querySelectorAll('.digit-cell')] : [];
           (item.values || []).forEach((v, i) => { if (cells[i]) cells[i].textContent = v; });
+          if (block && Array.isArray(item.entries)) {
+            const rows = [...block.querySelectorAll('.algo-row')];
+            item.entries.forEach((entry, i) => {
+              if (entry !== null && entry !== undefined && rows[i]) writeRowDigits(rows[i], entry);
+            });
+          }
           if (holder && item.positioned) positionAlgo(holder, item.x || 0, item.y || 0);
         }
       });
       activeCell = null;
       clearActiveCell();
-      setActive(document.querySelector('math-field') || makeRow(''));
+      const firstMathField = document.querySelector('math-field');
+      if (firstMathField) setActive(firstMathField);
+      else activeField = null;
 
       // Restore tool states; will be rendered after dock builds.
       if (data.tools && typeof data.tools === 'object') {
@@ -2461,7 +2582,7 @@
       .replace(/\\[a-zA-Z]+/g, 'x')
       .replace(/[{}]/g, '');
     const chars = Math.max(1, visible.length);
-    const width = Math.max(42, Math.min(260, 22 + chars * 17));
+    const width = Math.max(34, Math.min(340, 14 + chars * 17));
     mf.style.width = width + 'px';
   }
 
@@ -2520,8 +2641,9 @@
     });
     handle.addEventListener('pointermove', (e) => {
       if (!state || e.pointerId !== state.id) return;
-      const dx = e.clientX - state.startX;
-      const dy = e.clientY - state.startY;
+      const zoom = surfaceScale || 1;
+      const dx = (e.clientX - state.startX) / zoom;
+      const dy = (e.clientY - state.startY) / zoom;
       let x = Math.max(0, state.startLeft + dx);
       let y = Math.max(0, state.startTop + dy);
       if (window.TeachingTableSnap?.snap) {
@@ -2651,8 +2773,9 @@
     e.stopImmediatePropagation();
 
     const rect = stage.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    const zoom = surfaceScale || 1;
+    const clickX = (e.clientX - rect.left) / zoom;
+    const clickY = (e.clientY - rect.top) / zoom;
     const mf = makeRow('');
     const row = mf.closest('.row');
     positionRow(row, Math.max(0, clickX - 6), Math.max(0, clickY - 31));
@@ -2776,6 +2899,8 @@
   }
 
   function openWorksheetModal() {
+    modalOpenedAt = performance.now();
+    worksheetModal.classList.add('show');
     modalStatus.classList.remove('success', 'error');
     modalStatus.textContent = 'Waiting for phone…';
     if (WORKER_URL) {
@@ -2791,7 +2916,6 @@
       modalUrl.textContent = '';
       modalStatus.textContent = 'Pick a file below to load a worksheet.';
     }
-    worksheetModal.classList.add('show');
   }
 
   function closeWorksheetModal() {
@@ -2808,8 +2932,10 @@
 
   // Click outside the card to close.
   worksheetModal.addEventListener('click', (e) => {
-    if (e.target === worksheetModal) closeWorksheetModal();
+    if (e.target === worksheetModal && performance.now() - modalOpenedAt > 450) closeWorksheetModal();
   });
+  worksheetModal.querySelector('.modal-card')?.addEventListener('pointerdown', e => e.stopPropagation());
+  worksheetModal.querySelector('.modal-card')?.addEventListener('click', e => e.stopPropagation());
 
   // Escape key to close.
   window.addEventListener('keydown', (e) => {
@@ -3566,7 +3692,7 @@
       const [a, b] = [...backgroundTouches.values()];
       backgroundPinch = {
         distance: Math.max(20, backgroundDistance(a, b)),
-        scale: currentMode === 'worksheet' ? worksheetScale : backgroundScale,
+        scale: surfaceScale,
       };
     }
   });
@@ -3578,7 +3704,7 @@
     e.preventDefault();
     const [a, b] = [...backgroundTouches.values()].slice(0, 2);
     const ratio = backgroundDistance(a, b) / backgroundPinch.distance;
-    setCurrentBackgroundScaleFromRatio(backgroundPinch.scale, ratio);
+    setSurfaceScaleFromRatio(backgroundPinch.scale, ratio);
   });
 
   function endBackgroundPointer(e) {
@@ -3601,8 +3727,10 @@
   afterMathliveReady(async () => {
     applyMathSize();
     applyBackgroundScale();
-    if (!load()) { makeRow(''); setMode('plain'); }
-    setActive(document.querySelector('math-field'));
+    applySurfaceScale();
+    if (!load()) { setMode('plain'); }
+    const initialMathField = document.querySelector('math-field');
+    if (initialMathField) setActive(initialMathField);
     await refreshToolsFromAppMenu();
     renderDock();
     restoreOpenTools();
@@ -3640,6 +3768,7 @@
     document.getElementById('gridBtn').addEventListener('pointerdown', event => { event.preventDefault(); setMode('grid'); });
     document.getElementById('worksheetBtn').addEventListener('pointerdown', event => {
       event.preventDefault();
+      event.stopPropagation();
       // If we have a worksheet cached but are in another paper mode, just switch back.
       // Otherwise open the source modal (QR + file picker).
       if (worksheetDataUrl && currentMode !== 'worksheet') {
@@ -3650,8 +3779,9 @@
     });
     document.getElementById('smallTextBtn').addEventListener('pointerdown', event => { event.preventDefault(); changeMathSize(-4); });
     document.getElementById('bigTextBtn').addEventListener('pointerdown', event => { event.preventDefault(); changeMathSize(4); });
-    document.getElementById('worksheetSmallBtn').addEventListener('pointerdown', event => { event.preventDefault(); changeCurrentBackgroundScale(-0.1); });
-    document.getElementById('worksheetBigBtn').addEventListener('pointerdown', event => { event.preventDefault(); changeCurrentBackgroundScale(0.1); });
+    document.getElementById('worksheetSmallBtn').addEventListener('pointerdown', event => { event.preventDefault(); changeSurfaceScale(-0.1); });
+    document.getElementById('surfaceFitBtn').addEventListener('pointerdown', event => { event.preventDefault(); fitSurfaceScale(); });
+    document.getElementById('worksheetBigBtn').addEventListener('pointerdown', event => { event.preventDefault(); changeSurfaceScale(0.1); });
     document.querySelectorAll('[data-alg]').forEach(button => {
       button.addEventListener('pointerdown', event => { event.preventDefault(); makeAlgoBlock(button.dataset.alg); });
     });
