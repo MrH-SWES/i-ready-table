@@ -16,6 +16,7 @@
   const close = $('#curriculum-close');
   const pick = $('#curriculum-pick');
   const input = $('#curriculumFile');
+  const library = $('#curriculum-library');
   const tocEl = $('#curriculum-toc');
   const search = $('#curriculum-search');
   const pageInput = $('#curriculum-page-input');
@@ -27,6 +28,136 @@
   const worksheetImg = $('#worksheet-img');
 
   if (!btn || !drawer || !input || !stage || !window.JSZip) return;
+
+  const DB_NAME = 'teaching-table-curriculum-v1';
+  const DB_VERSION = 1;
+  const BOOK_STORE = 'books';
+
+  function openLibraryDb() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(BOOK_STORE)) {
+          db.createObjectStore(BOOK_STORE, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error || new Error('Could not open curriculum library.'));
+    });
+  }
+
+  async function withBookStore(mode, fn) {
+    const db = await openLibraryDb();
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(BOOK_STORE, mode);
+        const store = tx.objectStore(BOOK_STORE);
+        let result;
+        try { result = fn(store); } catch (err) { reject(err); return; }
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () => reject(tx.error || new Error('Curriculum library transaction failed.'));
+        tx.onabort = () => reject(tx.error || new Error('Curriculum library transaction was cancelled.'));
+      });
+    } finally {
+      db.close();
+    }
+  }
+
+  async function listSavedBooks() {
+    const db = await openLibraryDb();
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(BOOK_STORE, 'readonly');
+        const req = tx.objectStore(BOOK_STORE).getAll();
+        req.onsuccess = () => resolve((req.result || []).sort((a,b) => String(a.label || a.name).localeCompare(String(b.label || b.name))));
+        req.onerror = () => reject(req.error);
+      });
+    } finally { db.close(); }
+  }
+
+  async function getSavedBook(id) {
+    const db = await openLibraryDb();
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(BOOK_STORE, 'readonly');
+        const req = tx.objectStore(BOOK_STORE).get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    } finally { db.close(); }
+  }
+
+  async function saveBookBlob(file, label = '') {
+    const id = file.name;
+    const record = {
+      id,
+      name: file.name,
+      label: label || file.name.replace(/\.epub$/i, ''),
+      size: file.size || 0,
+      type: file.type || 'application/epub+zip',
+      modified: file.lastModified || Date.now(),
+      savedAt: Date.now(),
+      blob: file.slice ? file.slice(0, file.size, file.type || 'application/epub+zip') : file,
+    };
+    const db = await openLibraryDb();
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(BOOK_STORE, 'readwrite');
+        tx.objectStore(BOOK_STORE).put(record);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    } finally { db.close(); }
+    return record;
+  }
+
+  async function updateSavedBookLabel(id, label) {
+    if (!id || !label) return;
+    const db = await openLibraryDb();
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(BOOK_STORE, 'readwrite');
+        const store = tx.objectStore(BOOK_STORE);
+        const req = store.get(id);
+        req.onsuccess = () => {
+          const record = req.result;
+          if (record) { record.label = label; store.put(record); }
+        };
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    } finally { db.close(); }
+  }
+
+  function prettyBookName(record) {
+    const source = String(record?.label || record?.name || 'Saved book');
+    const grade = String(record?.name || '').match(/iRCM(0K|\d{2})_/i)?.[1];
+    if (grade) {
+      const display = grade.toUpperCase() === '0K' ? 'Kindergarten' : 'Grade ' + Number(grade);
+      return display + ' — ' + source.replace(/^iRCM(?:0K|\d{2})_NN_EN_SW$/i, 'i-Ready Math');
+    }
+    return source;
+  }
+
+  async function refreshLibrary(selectedId = '') {
+    if (!library) return;
+    const books = await listSavedBooks();
+    library.innerHTML = '<option value="">Saved books…</option>';
+    books.forEach(book => {
+      const option = document.createElement('option');
+      option.value = book.id;
+      option.textContent = prettyBookName(book);
+      library.appendChild(option);
+    });
+    if (selectedId && books.some(b => b.id === selectedId)) library.value = selectedId;
+  }
+
+  async function requestPersistentStorage() {
+    try {
+      if (navigator.storage?.persist) await navigator.storage.persist();
+    } catch {}
+  }
 
   function ensureSurfaceControls() {
     let controls = $('#surface-controls');
@@ -140,6 +271,20 @@
   btn.addEventListener('click', openDrawer);
   close.addEventListener('click', closeDrawer);
   pick.addEventListener('click', () => input.click());
+  library?.addEventListener('change', async () => {
+    const id = library.value;
+    if (!id) return;
+    setStatus('Opening saved book…');
+    try {
+      const record = await getSavedBook(id);
+      if (!record?.blob) throw new Error('Saved book data is missing.');
+      const file = new File([record.blob], record.name || id, { type: record.type || 'application/epub+zip', lastModified: record.modified || Date.now() });
+      await openEpubFile(file, { save: false, libraryId: id });
+    } catch (err) {
+      console.error(err);
+      setStatus(err.message || 'Could not open saved book.', true);
+    }
+  });
   search.addEventListener('input', renderToc);
   pageGo?.addEventListener('click', jumpToPage);
   pageInput?.addEventListener('keydown', event => {
@@ -149,12 +294,25 @@
     }
   });
 
-  input.addEventListener('change', async () => {
-    const file = input.files?.[0];
+  async function openEpubFile(file, options = {}) {
     if (!file) return;
+    const shouldSave = options.save !== false;
 
     setStatus('Opening ' + file.name + '…');
     tocEl.innerHTML = '';
+
+    let savedRecord = null;
+    if (shouldSave) {
+      try {
+        await requestPersistentStorage();
+        setStatus('Saving ' + file.name + ' to this Teaching Table…');
+        savedRecord = await saveBookBlob(file);
+        await refreshLibrary(savedRecord.id);
+      } catch (err) {
+        console.warn('Could not save EPUB persistently:', err);
+        setStatus('Opening book. Browser storage could not save a permanent copy.', true);
+      }
+    }
 
     try {
       const zip = await JSZip.loadAsync(await file.arrayBuffer());
@@ -212,6 +370,7 @@
         return Math.max(0, d - 1);
       };
 
+      revoke();
       state.zip = zip;
       state.navPath = navPath;
       state.current = -1;
@@ -228,6 +387,12 @@
         clean([...opf.getElementsByTagNameNS('*', 'title')][0]?.textContent) ||
         file.name.replace(/\.epub$/i, '');
 
+      const libraryId = options.libraryId || savedRecord?.id || file.name;
+      try {
+        await updateSavedBookLabel(libraryId, state.bookTitle);
+        await refreshLibrary(libraryId);
+      } catch {}
+
       $('#curriculum-book-title').textContent = state.bookTitle;
       $('#curriculum-book-meta').textContent = state.toc.length + ' pages';
       search.disabled = false;
@@ -241,10 +406,35 @@
       if (pageTotal) pageTotal.textContent = 'of ' + state.toc.length;
       if (pageGo) pageGo.disabled = false;
       renderToc();
-      setStatus('Ready. Pick a lesson or session.');
+      setStatus(shouldSave ? 'Saved on this device. Pick a lesson or session.' : 'Ready. Pick a lesson or session.');
     } catch (err) {
       console.error(err);
       setStatus(err.message || 'Could not open EPUB.', true);
+      throw err;
+    }
+  }
+
+  input.addEventListener('change', async () => {
+    const files = [...(input.files || [])];
+    if (!files.length) return;
+
+    let lastFile = null;
+    for (const file of files) {
+      if (!/\.epub$/i.test(file.name || '') && file.type !== 'application/epub+zip') continue;
+      lastFile = file;
+      try {
+        await saveBookBlob(file);
+      } catch (err) {
+        console.warn('Could not save ' + file.name, err);
+      }
+    }
+
+    await refreshLibrary(lastFile?.name || '');
+
+    if (files.length === 1) {
+      try { await openEpubFile(files[0], { save: false, libraryId: files[0].name }); } catch {}
+    } else if (lastFile) {
+      setStatus(files.length + ' books saved. Choose one from Saved books.');
     }
 
     input.value = '';
@@ -552,5 +742,7 @@
     }
   });
 
+  requestPersistentStorage();
+  refreshLibrary().catch(err => console.warn('Could not load saved curriculum library:', err));
   renderToc();
 })();
