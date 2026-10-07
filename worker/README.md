@@ -69,7 +69,7 @@ fetch listener and bound environment without replacing its other handlers.
 - Transcript is separate from delivery directions; `store: false` disables
   persisted Interaction objects. The Worker does not log or cache text/audio.
   This does not override Google's account-level data-use terms.
-- Only `https://mrh-swes.github.io` is allowed; JSON only, 4,000 characters per
+- Only `https://mrh-swes.github.io` and `https://app.maththingsedtech.com` are allowed; JSON only, 4,000 characters per
   request, bounded request body, 25-second upstream timeout, sanitized errors.
 - Browser requests are chunked at natural boundaries, with an 8 MiB/8-clip
   memory-only replay cache. New speech, a repeated click, Escape, page changes,

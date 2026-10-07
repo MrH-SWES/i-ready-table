@@ -1,12 +1,11 @@
 // Add this route to the existing relay; do not replace its worksheet handlers.
-const ORIGIN = 'https://mrh-swes.github.io';
+const ORIGINS = new Set(['https://mrh-swes.github.io', 'https://app.maththingsedtech.com']);
 const MODEL = 'gemini-3.8-flash-tts';
 const STYLE = 'A warm, natural elementary-school teacher reading to a child. ' +
   'Patient, reassuring, conversational American English. Clear articulation, a gently ' +
   'unhurried pace, and natural pauses at punctuation. Expressive but never sing-song or exaggerated.';
 
 const cors = {
-  'Access-Control-Allow-Origin': ORIGIN,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400',
@@ -14,10 +13,6 @@ const cors = {
   'Cache-Control': 'no-store',
   'X-Content-Type-Options': 'nosniff',
 };
-
-function fail(status, error, extra = {}) {
-  return Response.json({ error }, { status, headers: { ...cors, ...extra } });
-}
 
 async function limitedBody(request) {
   if (!request.body) return '';
@@ -43,10 +38,14 @@ async function limitedBody(request) {
 export async function handleTts(request, env) {
   // Return null for unrelated paths so the existing relay can handle them unchanged.
   if (new URL(request.url).pathname !== '/tts') return null;
-  if (request.headers.get('Origin') !== ORIGIN) {
+  const origin = request.headers.get('Origin');
+  if (!ORIGINS.has(origin)) {
     return new Response('Forbidden', { status: 403, headers: { Vary: 'Origin' } });
   }
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  const headers = { ...cors, 'Access-Control-Allow-Origin': origin };
+  const fail = (status, error, extra = {}) =>
+    Response.json({ error }, { status, headers: { ...headers, ...extra } });
+  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
   if (request.method !== 'POST') return fail(405, 'Use POST.', { Allow: 'POST, OPTIONS' });
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('Content-Type') || '')) {
     return fail(415, 'Send application/json.');
@@ -116,7 +115,7 @@ export async function handleTts(request, env) {
     }
     const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
     return new Response(bytes, {
-      headers: { ...cors, 'Content-Type': 'audio/wav', 'Content-Length': String(bytes.byteLength) },
+      headers: { ...headers, 'Content-Type': 'audio/wav', 'Content-Length': String(bytes.byteLength) },
     });
   } catch {
     return fail(controller.signal.aborted ? 504 : 502, 'Premium voice is temporarily unavailable.');
