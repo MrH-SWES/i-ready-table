@@ -19,6 +19,28 @@ function wav() {
   return bytes;
 }
 
+test('migration allows exactly both app origins and returns the requesting origin', async () => {
+  for (const allowed of [origin, 'https://app.maththingsedtech.com']) {
+    for (const method of ['OPTIONS', 'POST']) {
+      const response = await handleTts(new Request('https://relay.example/tts', {
+        method, headers: { Origin: allowed, 'Content-Type': 'application/json' },
+        ...(method === 'POST' ? { body: '{"text":"synthetic"}' } : {}),
+      }), {});
+      assert.equal(response.status, method === 'OPTIONS' ? 204 : 503);
+      assert.equal(response.headers.get('Access-Control-Allow-Origin'), allowed);
+      assert.equal(response.headers.get('Vary'), 'Origin');
+    }
+  }
+  for (const denied of ['', 'https://maththingsedtech.com', 'http://app.maththingsedtech.com',
+    'https://app.maththingsedtech.com.evil.example']) {
+    const response = await handleTts(new Request('https://relay.example/tts', {
+      method: 'OPTIONS', headers: { Origin: denied },
+    }), env);
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get('Access-Control-Allow-Origin'), null);
+  }
+});
+
 test('keeps upload routing untouched and enforces origin, methods, and JSON', async () => {
   assert.equal(await handleTts(new Request('https://relay.example/upload'), env), null);
   const denied = await handleTts(request({}, { headers: { Origin: 'https://other.example' } }), env);
@@ -62,6 +84,13 @@ test('sends key only upstream, separates style, disables storage, and returns WA
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
   assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
   assert.ok(!JSON.stringify([...response.headers]).includes(env.GEMINI_API_KEY));
+  const appResponse = await handleTts(request(undefined, {
+    headers: { Origin: 'https://app.maththingsedtech.com', 'Content-Type': 'application/json',
+      'CF-Connecting-IP': '192.0.2.1' },
+  }), env);
+  assert.equal(appResponse.status, 200);
+  assert.equal(appResponse.headers.get('Access-Control-Allow-Origin'), 'https://app.maththingsedtech.com');
+  assert.deepEqual(Buffer.from(await appResponse.arrayBuffer()), bytes);
 });
 
 test('sanitizes provider failures and rejects non-audio responses', async t => {
