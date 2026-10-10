@@ -37,7 +37,8 @@ This is a prepared migration, not a completed production cutover.
   Direct public Cloudflare requests returned HTTP 403 here; those responses do
   not establish the actual origin deployment health.
 - Repository About metadata remains unchanged: the CLI's existing identity gets
-  HTTP 404 on the authorized edit; the connector has no metadata-write action.
+  HTTP 404 on the authorized edit; the connector does not expose a repository
+  metadata mutation.
 - Google Drive private books require existing-client origin approval and a fresh
   owner sign-in. No OAuth grant or credential was created or changed.
 - The inherited canonical palette retains stale fallback categories after its
@@ -47,3 +48,19 @@ This is a prepared migration, not a completed production cutover.
 The proposed homepage is unpublished. No DNS, mail records, backend deployment,
 production hosting configuration, or existing GitHub Pages access was changed.
 See README.md in this directory for owner steps and rollback.
+
+## Current source recheck — 2026-10-10
+
+- Rechecked the canonical repository after the original 2026-10-07 verification.
+  `main` advanced from `4a3603067c19a5ef24f1903147590683c62d6ba5` to
+  `d1f1a016401035d737985a8a8c0bac6ed0afc242` (two commits), changing the Frog
+  Number Line. Updated `source.json` to pin that current canonical commit.
+- `python3 scripts/build-cloudflare.py --source ../math-things-reference`
+  builds 52 canonical assets from the updated pinned commit. The source clone is
+  separate from the migration repository and was not modified.
+- `node --test tests/*.test.mjs`: all 11 regression tests pass.
+- Current public `https://maththingsedtech.com/` serves the company landing page
+  with a Security link. It does not currently link to Teaching Table. No public
+  app-domain result was discoverable, and no connected browser or Cloudflare
+  session was available to inspect the app Worker, zone, relay, or custom domain.
+  No site, DNS, relay, mail, or Pages configuration was changed.

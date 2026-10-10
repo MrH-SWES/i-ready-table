@@ -7,7 +7,7 @@ Status: prepared for deployment; custom domain and live functionality are not ye
 `i-ready-table` main at `7016c31b120e2cc6e1838ecc3b89af043701fb92` redirects to
 `math-things/apps/teaching-table/`. Restoring its previous entry point would lose
 newer Google Drive and classroom work. `source.json` instead pins the canonical
-`math-things` source at `4a3603067c19a5ef24f1903147590683c62d6ba5`.
+`math-things` source at `d1f1a016401035d737985a8a8c0bac6ed0afc242`.
 The canonical repository is not modified. The build reads committed blobs,
 including the latest manipulative behavior, and never includes dirty local work.
 
