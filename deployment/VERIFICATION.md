@@ -60,7 +60,12 @@ See README.md in this directory for owner steps and rollback.
   separate from the migration repository and was not modified.
 - `node --test tests/*.test.mjs`: all 11 regression tests pass.
 - Current public `https://maththingsedtech.com/` serves the company landing page
-  with a Security link. It does not currently link to Teaching Table. No public
-  app-domain result was discoverable, and no connected browser or Cloudflare
-  session was available to inspect the app Worker, zone, relay, or custom domain.
+  with a Security link; `https://maththingsedtech.com/security/` resolves, and
+  the company page does not currently link to Teaching Table.
+- An unauthenticated DNS lookup for `app.maththingsedtech.com` resolved to
+  Cloudflare IPv4 and IPv6 addresses. A direct HTTPS `GET /` returned Cloudflare
+  `404 Page not found` without redirecting. The app is not serving at that URL.
+- The supported browser inventory and tab list were empty; the in-app browser
+  and MCP Apps browser were unavailable. No connected Cloudflare session was
+  available to inspect the Worker, zone, relay, or custom-domain configuration.
   No site, DNS, relay, mail, or Pages configuration was changed.
